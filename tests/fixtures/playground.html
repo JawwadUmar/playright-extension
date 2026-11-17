@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Locator Lens test playground</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;padding:38px;font:15px/1.5 system-ui;color:#22354a;background:#f4f7fa}main{max-width:1040px;margin:auto}h1{font-size:25px;margin-top:0}h2{font-size:19px}h3{font-size:16px;margin:0 0 12px}section{margin:24px 0;padding:24px;background:white;border:1px solid #dce4ec;border-radius:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}article{padding:18px;border:1px solid #d9e2ec;border-radius:8px}button,a,input,select,textarea{font:inherit}button{padding:9px 16px;border:1px solid #acbbc9;border-radius:6px;background:#fff;color:#21394e;cursor:pointer}button:hover{background:#eef7f3}label{display:block;margin:8px 0}input:not([type=checkbox]):not([type=radio]),textarea,select{display:block;padding:9px;border:1px solid #b8c6d4;border-radius:5px;margin:6px 0}fieldset{border:1px solid #dce4ec;padding:16px}legend{font-weight:650}svg{vertical-align:middle}table{border-collapse:collapse;width:100%}td,th{padding:12px;border:1px solid #dde6ef}iframe{display:block;width:100%;height:390px;border:1px solid #c1d1df;margin:14px 0}.plain{display:flex;gap:10px}#dynamic-zone{min-height:45px}.hint{font-size:13px;color:#718197}
+</style></head><body><main>
+<h1>Selector test playground</h1><p class="hint">Synthetic job listings, shops, dashboards, forms, frames, and web components.</p>
+<section aria-label="Basic controls"><h2>Everyday elements</h2>
+  <button data-case="save">Save changes</button>
+  <a data-case="link" href="/account/settings">Account settings</a>
+  <button data-case="nested"><span data-case="nested-span">Continue to checkout</span><svg data-case="nested-svg" width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><path data-case="nested-path" d="M4 10h12m-5-5 5 5-5 5" stroke="currentColor" fill="none"/></svg></button>
+  <button data-case="icon" aria-label="Open notifications"><svg width="18" height="18" aria-hidden="true"><circle data-case="icon-circle" cx="9" cy="9" r="6"/></svg></button>
+  <button data-case="disabled" disabled>Export archived records</button>
+  <button hidden data-case="hidden-save">Save changes</button>
+  <span data-case="text">Your subscription is active</span>
+  <img data-case="image" alt="Monthly revenue chart" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='28'%3E%3Crect width='60' height='28' fill='%23087f77'/%3E%3C/svg%3E">
+  <div role="button" tabindex="0" data-case="custom-role" aria-label="Expand details">+</div>
+</section>
+<section><h2>Job listings · repeated actions</h2><div class="grid">
+  <article><h3>Frontend Engineer · Northstar</h3><p>Remote · Full time</p><button data-case="apply-a"><span>Easy Apply</span></button></article>
+  <article><h3>Platform Engineer · Atlas</h3><p>Hybrid · Full time</p><button data-case="apply-b"><span data-case="apply-b-span">Easy Apply</span></button></article>
+</div></section>
+<section><h2>Shop · repeated product cards</h2><div class="grid">
+  <article><h3>Studio headphones</h3><p>₹ 4,200</p><button data-case="cart-a">Add to cart</button></article>
+  <article><h3>Travel headphones</h3><p>₹ 3,400</p><button data-case="cart-b">Add to cart</button></article>
+</div></section>
+<section><h2>Forms and labels</h2><form aria-label="Profile">
+  <label>Full name<input data-case="name" name="full_name"></label>
+  <label for="password-control">Password</label><input id="password-control" type="password" data-case="password">
+  <label>Accent color<input type="color" data-case="color-input" value="#087f77"></label>
+  <label>About you<textarea data-case="textarea"></textarea></label>
+  <label>Country<select data-case="select"><option>India</option><option>United Kingdom</option></select></label>
+  <label><input data-case="checkbox" type="checkbox"> Email updates</label>
+  <label><input data-case="radio" type="radio" name="plan" value="pro"> Pro plan</label>
+  <span id="reference-label">Billing address</span><input data-case="labelledby" aria-labelledby="reference-label">
+  <input data-case="placeholder" placeholder="Search projects">
+  <input data-case="placeholder-only" aria-hidden="true" placeholder="Search private metadata">
+  <div data-case="label-only" aria-label="Form guidance"></div>
+  <input data-case="stable-name" name="internal_reference">
+  <input data-case="test-id" type="password" data-testid="api-secret">
+  <div data-case="alt-test" data-cy="order-total"></div>
+</form><div class="grid">
+  <form aria-label="Shipping"><input type="email" data-case="shipping-email" placeholder="Email address"></form>
+  <form aria-label="Billing"><input type="email" data-case="billing-email" placeholder="Email address"></form>
+</div></section>
+<section><h2>Dashboard · repeated table rows</h2><table><thead><tr><th>Invoice</th><th>Action</th></tr></thead><tbody>
+  <tr><td>Northstar subscription</td><td><button data-case="row-a">Download invoice</button></td></tr>
+  <tr><td>Atlas subscription</td><td><button data-case="row-b">Download invoice</button></td></tr>
+</tbody></table></section>
+<section aria-label="Edge cases"><h2>Changing and unlabelled elements</h2>
+  <button id="ember462981" class="css-8fb19a7d jss8391" data-case="dynamic-id">Review application</button>
+  <div data-case="no-attributes"></div>
+  <div class="plain"><button data-case="identical-a">Identical action</button><button data-case="identical-b">Identical action</button></div>
+  <button data-case="quoted" aria-label="Send &quot;quoted&quot; text's \ slash &amp; &#10; newline &lt;tag&gt;">Quoted</button>
+  <span data-case="selector-chars">Literal &gt;&gt; selector "quotes" &amp; [brackets]</span>
+  <div data-case="odd-attribute" name="order&quot;\number&#10;next"></div>
+  <div data-case="css-id" id="profile:address.primary"></div>
+  <div id="dynamic-zone"></div>
+  <button data-case="insert" onclick="const b=document.createElement('button');b.dataset.case='inserted';b.textContent='Loaded after navigation';document.querySelector('#dynamic-zone').append(b)">Load more controls</button>
+</section>
+<section><h2>Open Shadow DOM</h2><lens-component></lens-component><lens-component data-second></lens-component></section>
+<section><h2>Frames</h2>
+  <iframe title="Payment details" src="/frame.html"></iframe>
+  <iframe title="Cross origin account" src="http://localhost:4173/frame.html?cross=1"></iframe>
+  <iframe title="Inline document" srcdoc="<!doctype html><html><body><button data-case='srcdoc-button'>Save inline document</button></body></html>"></iframe>
+</section>
+</main><script>
+customElements.define('lens-component',class extends HTMLElement{constructor(){super();const root=this.attachShadow({mode:'open'});root.innerHTML=`<style>:host{display:block;margin:12px 0}button{padding:10px}</style><button aria-label="${this.hasAttribute('data-second')?'Shadow secondary':'Shadow primary'}"><span data-case="shadow-span">Shadow action</span><svg width="12" height="12"><circle cx="5" cy="5" r="4"/></svg></button><nested-lens></nested-lens>`}});
+customElements.define('nested-lens',class extends HTMLElement{constructor(){super();this.attachShadow({mode:'open'}).innerHTML='<input aria-label="Nested shadow email" data-case="deep-shadow">'}});
+window.interactionCount=0;document.querySelector('[data-case=save]').addEventListener('click',()=>window.interactionCount++);
+</script></body></html>

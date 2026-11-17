@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Locator Lens</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <header><div class="brand-icon" aria-hidden="true">[·]</div><div><h1>Locator Lens</h1><p class="eyebrow">PLAYWRIGHT SELECTORS</p></div><span class="version">v1.0</span></header>
+  <main>
+    <div class="inspection-card">
+      <div class="inspection-top"><div><h2>Hover inspection</h2><p id="mode-label">Off · browse as usual</p></div><button id="enabled" class="switch" type="button" role="switch" aria-checked="false" aria-label="Enable hover inspection"><span></span></button></div>
+      <div class="status"><span id="status-dot"></span><span id="page-status" role="status">Checking this page…</span></div>
+    </div>
+    <section class="language-section" aria-labelledby="language-title"><div class="section-label"><h2 id="language-title">Copy language</h2><span>Playwright</span></div><div class="segmented" role="group" aria-label="Selector language"><button id="python" type="button" aria-pressed="true">Python</button><button id="javascript" type="button" aria-pressed="false">JavaScript</button></div><code id="preview">page.get_by_role("button", name="Save", exact=True)</code></section>
+    <label class="details-row" for="details"><span><strong>Selector details</strong><small>Accessible name and validation details</small></span><input id="details" type="checkbox"></label>
+    <div id="error" class="error" role="alert" hidden></div>
+    <div class="hint"><span class="hint-icon" aria-hidden="true">↖</span><p>Hover an element. Copy its verified selector.<br><span>Inspection applies to all accessible tabs.</span></p></div>
+  </main>
+  <footer><span><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>L</kbd></span><span>Toggle inspection</span></footer>
+  <script src="popup.js"></script>
+</body>
+</html>

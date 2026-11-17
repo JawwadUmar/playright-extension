@@ -1,0 +1,23 @@
+{
+  "name": "locator-lens",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hover, validate, and copy reliable Playwright locators in Chrome.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "npm run build && playwright test",
+    "test:headed": "npm run build && playwright test --headed",
+    "test:unit": "node --test tests/unit/*.test.mjs",
+    "test:python": "node scripts/check-python.mjs",
+    "check": "node scripts/check.mjs",
+    "demo": "node tests/server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.1",
+    "esbuild": "0.28.2"
+  }
+}
