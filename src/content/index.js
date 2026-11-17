@@ -150,6 +150,7 @@ function install() {
         onCopy: () => { void copy(); },
         onDisable: () => { void send({ type: 'settings', patch: { enabled: false } }); },
         onEnter: () => { revision++; hover?.cancel(); }, onLeave: () => hover?.resample(),
+        onTargetBlocked: hide,
       });
       hover = new HoverDetector({ ownsEvent: event => panel.ownsEvent(event), engaged: () => panel.isEngaged(), onHover: inspect, onLeave: hide });
       hover.start();
@@ -157,6 +158,8 @@ function install() {
       observer.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
       window.addEventListener('scroll', layout, { capture: true, passive: true });
       window.addEventListener('resize', layout, { passive: true });
+      window.visualViewport?.addEventListener('resize', layout, { passive: true });
+      window.visualViewport?.addEventListener('scroll', layout, { passive: true });
       document.addEventListener('keydown', keydown, true);
     } else if (!settings.enabled && panel) {
       hide();
@@ -172,6 +175,8 @@ function install() {
       layoutFrame = undefined;
       window.removeEventListener('scroll', layout, true);
       window.removeEventListener('resize', layout);
+      window.visualViewport?.removeEventListener('resize', layout);
+      window.visualViewport?.removeEventListener('scroll', layout);
       document.removeEventListener('keydown', keydown, true);
     } else if (panel && selected) render();
   }

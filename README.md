@@ -99,6 +99,7 @@ src/
     index.js                 Inspection lifecycle and orchestration
     hover.js                 Passive pointer detection and hit testing
     highlighter.js           Outline independent of website styles
+    overlay-layer.js         Top-layer placement, modal context, and lifecycle
     panel.js                 Closed-shadow floating UI and viewport positioning
   selector/
     dom.js                   Composed-tree traversal and stability heuristics
@@ -121,6 +122,8 @@ extension/                   Built extension; load this directory in Chrome
 ```
 
 Content scripts run in Chrome's **isolated world**, in every permitted frame. The panel and outline live in a closed Shadow DOM, so page selectors cannot traverse the UI and website styles do not affect it. No selector or application data is sent to a server.
+
+The overlay uses a fixed manual popover in the browser's top layer, with maximum-z-index positioning as a fallback. It mounts inside the active native dialog or the inspected site's dialog/popover so modal inertness and focus traps do not block Copy. The transparent overlay and its backdrop pass pointer events through; only the panel accepts clicks. New site overlays raise the panel again, and viewport resize/zoom/scroll keep it in view. A newly opened modal clears an inspection of an element that it has made inert; moving the pointer inspects the new modal. This follows the [HTML popover](https://html.spec.whatwg.org/multipage/popover.html) and [modal inertness](https://html.spec.whatwg.org/multipage/interaction.html#inert) rules.
 
 For cross-origin frames, the service worker obtains the browser's frame topology. A short-lived runtime-authorized handshake identifies the owning `iframe` by its actual `contentWindow`, rather than guessing from its URL. Each parent validates a unique locator for that exact frame element; nested paths are composed in order. Identical frame URLs are supported. A path that cannot be verified produces an unavailable result instead of an incorrect top-level locator.
 
@@ -150,7 +153,7 @@ npm run demo
 
 Open `http://127.0.0.1:4173` with the unpacked extension enabled to try all test scenarios manually. Stop the demo server before running the tests, since both use port 4173. The cross-origin scenario also uses `http://localhost:4173`.
 
-Browser coverage includes duplicate buttons and placeholders, labels, disabled/hidden controls, nested spans/SVGs, generated IDs/classes, empty elements, special characters, repeated forms/cards/table rows, dynamic insertion and replacement, open/nested Shadow DOM, and same-origin/cross-origin/srcdoc/nested iframes. Each engine test executes the generated JavaScript expression through Playwright and compares the resolved node with the target. Extension tests exercise the real popup, badge, floating panel, clipboard, settings, and hover lifecycle. See [manual website checks](tests/MANUAL_TESTS.md) for live-site verification.
+Browser coverage includes duplicate buttons and placeholders, labels, disabled/hidden controls, nested spans/SVGs, generated IDs/classes, empty elements, special characters, repeated forms/cards/table rows, dynamic insertion and replacement, open/nested Shadow DOM, and same-origin/cross-origin/srcdoc/nested iframes. Each engine test executes the generated JavaScript expression through Playwright and compares the resolved node with the target. Extension tests exercise the real popup, badge, floating panel, clipboard, settings, and hover lifecycle, plus native/nested/shadow-root dialogs, maximum-z-index backdrops, late-opening site popovers, transformed/clipped containers, and viewport resizing. See [manual website checks](tests/MANUAL_TESTS.md) for live-site verification.
 
 ## Limitations
 
@@ -158,7 +161,7 @@ Browser coverage includes duplicate buttons and placeholders, labels, disabled/h
 - Closed Shadow DOM, browser-owned controls (such as a native select popup), pseudo-elements, and individual pixels inside a canvas are not inspectable as ordinary DOM elements. For a closed shadow tree, only the accessible host can be targeted. [Playwright documents its Shadow DOM boundaries here.](https://playwright.dev/docs/locators#locate-in-shadow-dom)
 - Frame inspection requires extension access to the frame and every ancestor needed for a verified path. Browser restrictions, extension-denied origins, or inaccessible shadow-hosted frames can prevent it. The UI stays inside the inspected frame's viewport; very small frames may require scrolling the panel or using the copy shortcut. [Chrome documents content-script frame access here.](https://developer.chrome.com/docs/extensions/develop/concepts/content-scripts#specify-frames)
 - Inspecting a label or nested decoration may intentionally target its associated control/interactive ancestor. The panel names the matched element.
-- A site can conceal or remove extension UI or put fullscreen/top-layer elements above normal document overlays. Inspection does not override application behavior.
+- Browser UI and embedding iframe boundaries cannot be escaped by a webpage overlay. A site that actively removes extension nodes can still conceal the UI; the extension does not modify application code to prevent that.
 - `getByTestId` assumes Playwright's default `data-testid`. Other test attributes are emitted explicitly, so they work without a custom test-ID configuration. If your Playwright project overrides `testIdAttribute`, use the displayed test-ID locator only after aligning that configuration.
 - Automated job-listing/shop/dashboard tests are synthetic and contain no site-specific rules. Live authenticated LinkedIn and other third-party accounts were not used for automated verification.
 

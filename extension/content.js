@@ -7736,18 +7736,18 @@ ${value.stack}`;
         return "done";
       }
       _activelyFocused(node) {
-        const activeElement = node.getRootNode().activeElement;
-        const isFocused = activeElement === node && !!node.ownerDocument && node.ownerDocument.hasFocus();
-        return { activeElement, isFocused };
+        const activeElement2 = node.getRootNode().activeElement;
+        const isFocused = activeElement2 === node && !!node.ownerDocument && node.ownerDocument.hasFocus();
+        return { activeElement: activeElement2, isFocused };
       }
       focusNode(node, resetSelectionIfNotFocused) {
         if (!node.isConnected)
           return "error:notconnected";
         if (node.nodeType !== Node.ELEMENT_NODE)
           throw this.createStacklessError("Node is not an element");
-        const { activeElement, isFocused: wasFocused } = this._activelyFocused(node);
-        if (node.isContentEditable && !wasFocused && activeElement && activeElement.blur) {
-          activeElement.blur();
+        const { activeElement: activeElement2, isFocused: wasFocused } = this._activelyFocused(node);
+        if (node.isContentEditable && !wasFocused && activeElement2 && activeElement2.blur) {
+          activeElement2.blur();
         }
         node.focus();
         node.focus();
@@ -9012,9 +9012,147 @@ ${value.stack}`;
     }
   };
 
+  // src/content/overlay-layer.js
+  var HOST_STYLE = [
+    "all:initial",
+    "display:block",
+    "position:fixed",
+    "inset:0",
+    "width:auto",
+    "height:auto",
+    "min-width:0",
+    "min-height:0",
+    "max-width:none",
+    "max-height:none",
+    "margin:0",
+    "padding:0",
+    "border:0",
+    "background:transparent",
+    "overflow:visible",
+    "transform:none",
+    "filter:none",
+    "perspective:none",
+    "contain:none",
+    "isolation:isolate",
+    "z-index:2147483647",
+    "pointer-events:none"
+  ].map((rule) => `${rule}!important`).join(";");
+  function closestComposed(element, selector) {
+    for (let node = element; node instanceof Element; node = composedParent(node)) {
+      if (node.matches(selector)) return node;
+    }
+    return null;
+  }
+  function activeElement() {
+    let active = document.activeElement;
+    while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+    return active;
+  }
+  function containerFor(target) {
+    const modal = closestComposed(activeElement(), "dialog:modal") ?? closestComposed(target, "dialog:modal") ?? [...document.querySelectorAll("dialog:modal")].at(-1);
+    const targetModal = closestComposed(target, "dialog:modal");
+    if (modal && modal !== targetModal) return { container: modal, blocked: true };
+    const container = closestComposed(target, ':popover-open,[role="dialog"],[role="alertdialog"],[aria-modal="true"]') ?? modal ?? document.fullscreenElement ?? document.documentElement;
+    return { container, blocked: false };
+  }
+  var OverlayLayer = class {
+    constructor(host, { ownsNode, onPosition, onTargetBlocked }) {
+      this.host = host;
+      this.ownsNode = ownsNode;
+      this.onPosition = onPosition;
+      this.onTargetBlocked = onTargetBlocked;
+      this.host.style.cssText = HOST_STYLE;
+      this.supportsPopover = typeof host.showPopover === "function";
+      if (this.supportsPopover) host.setAttribute("popover", "manual");
+      document.documentElement.append(host);
+      this.onToggle = (event) => {
+        if (!this.ownsNode(event.target)) this.schedule(true);
+      };
+      this.onFocus = (event) => {
+        if (!this.ownsNode(event.target)) this.schedule(false);
+      };
+      this.onFullscreen = () => this.schedule(true);
+      this.observer = new MutationObserver((records) => {
+        if (records.some((record) => !this.ownsNode(record.target))) this.schedule(true);
+      });
+      this.roots = /* @__PURE__ */ new Set();
+      this.watch(document);
+      document.addEventListener("focusin", this.onFocus, true);
+      document.addEventListener("fullscreenchange", this.onFullscreen, true);
+    }
+    watch(root) {
+      if (this.roots.has(root)) return;
+      this.roots.add(root);
+      root.addEventListener("beforetoggle", this.onToggle, true);
+      root.addEventListener("toggle", this.onToggle, true);
+      this.observer.observe(root, { subtree: true, attributes: true, attributeFilter: ["open", "inert", "aria-modal"] });
+    }
+    schedule(raise) {
+      if (!this.visible) return;
+      this.raisePending ||= raise;
+      if (this.frame) return;
+      this.frame = requestAnimationFrame(() => {
+        this.frame = void 0;
+        if (!this.visible) return;
+        if (!this.ensure(this.target, this.raisePending)) return;
+        this.raisePending = false;
+        this.onPosition();
+      });
+    }
+    ensure(target = this.target, raise = false) {
+      this.target = target;
+      this.visible = true;
+      const { container, blocked } = containerFor(target);
+      if (blocked) {
+        this.onTargetBlocked();
+        return false;
+      }
+      let root = container.getRootNode();
+      while (root instanceof ShadowRoot) {
+        this.watch(root);
+        root = root.host.getRootNode();
+      }
+      root = target?.getRootNode();
+      while (root instanceof ShadowRoot) {
+        this.watch(root);
+        root = root.host.getRootNode();
+      }
+      const moved = this.host.parentElement !== container;
+      if (moved) container.append(this.host);
+      if (this.supportsPopover) {
+        try {
+          if (raise && !moved && this.host.matches(":popover-open")) this.host.hidePopover();
+          if (!this.host.matches(":popover-open")) this.host.showPopover();
+        } catch {
+        }
+      }
+      return true;
+    }
+    hide() {
+      this.visible = false;
+      this.target = void 0;
+      this.raisePending = false;
+      cancelAnimationFrame(this.frame);
+      this.frame = void 0;
+      if (this.supportsPopover && this.host.matches(":popover-open")) this.host.hidePopover();
+    }
+    destroy() {
+      this.hide();
+      this.observer.disconnect();
+      for (const root of this.roots) {
+        root.removeEventListener("beforetoggle", this.onToggle, true);
+        root.removeEventListener("toggle", this.onToggle, true);
+      }
+      this.roots.clear();
+      document.removeEventListener("focusin", this.onFocus, true);
+      document.removeEventListener("fullscreenchange", this.onFullscreen, true);
+    }
+  };
+
   // src/content/panel.js
   var styles = `
   :host { all: initial; color-scheme: light; }
+  :host::backdrop { display:none !important; background:transparent !important; pointer-events:none !important; }
   *, *::before, *::after { box-sizing: border-box; }
   .outline { display:none; position:fixed; pointer-events:none; border:2px solid #079b8e; border-radius:4px; background:#0eaa9209; box-shadow:0 0 0 2px #ffffffb3; z-index:0; }
   .panel { display:none; position:fixed; pointer-events:auto; width:356px; max-height:calc(100vh - 16px); overflow:auto; color:#18283d; background:#fff; border:1px solid #dce4ed; border-radius:14px; box-shadow:0 12px 48px #1226392b,0 2px 8px #1226390f; font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; text-align:left; letter-spacing:normal; z-index:1; }
@@ -9050,9 +9188,8 @@ ${value.stack}`;
   [hidden] { display:none !important; }
 `;
   var FloatingPanel = class {
-    constructor({ onCopy, onDisable, onEnter, onLeave }) {
+    constructor({ onCopy, onDisable, onEnter, onLeave, onTargetBlocked }) {
       this.host = document.createElement("locator-lens-overlay");
-      this.host.style.cssText = "all:initial!important;display:block!important;position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important;";
       this.root = this.host.attachShadow({ mode: "closed" });
       const style = document.createElement("style");
       style.textContent = styles;
@@ -9080,7 +9217,11 @@ ${value.stack}`;
       this.panel.querySelector(".close").addEventListener("click", onDisable);
       this.panel.addEventListener("pointerenter", onEnter);
       this.panel.addEventListener("pointerleave", onLeave);
-      document.documentElement.append(this.host);
+      this.layer = new OverlayLayer(this.host, {
+        ownsNode: (node) => this.ownsNode(node),
+        onPosition: () => this.position(this.target, this.point),
+        onTargetBlocked: onTargetBlocked ?? (() => this.hide())
+      });
     }
     ownsEvent(event) {
       return event.composedPath().includes(this.host);
@@ -9111,14 +9252,24 @@ ${value.stack}`;
       this.fields.error.hidden = true;
       this.copy.disabled = !valid;
       this.panel.style.display = "block";
+      if (!this.layer.ensure(target)) return;
       this.highlighter.show(target);
       this.position(target, point);
     }
     position(target, point) {
       if (!target?.isConnected) return;
-      const margin = 8;
-      const width = Math.max(100, Math.min(356, innerWidth - margin * 2));
+      this.target = target;
+      this.point = point;
+      if (!this.layer.ensure(target)) return;
+      const viewport = window.visualViewport;
+      const viewportLeft = viewport?.offsetLeft ?? 0;
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportWidth = viewport?.width ?? innerWidth;
+      const viewportHeight = viewport?.height ?? innerHeight;
+      const margin = Math.min(8, viewportWidth / 4, viewportHeight / 4);
+      const width = Math.max(1, Math.min(356, viewportWidth - margin * 2));
       this.panel.style.width = `${width}px`;
+      this.panel.style.maxHeight = `${Math.max(1, viewportHeight - margin * 2)}px`;
       const height = this.panel.getBoundingClientRect().height;
       const rect = target.getBoundingClientRect();
       const x = point?.x ?? rect.left;
@@ -9130,8 +9281,8 @@ ${value.stack}`;
         [x + 18, rect.top - height - 12],
         [x + 18, y + 18]
       ].map(([left, top]) => {
-        left = Math.max(margin, Math.min(left, innerWidth - width - margin));
-        top = Math.max(margin, Math.min(top, innerHeight - height - margin));
+        left = Math.max(viewportLeft + margin, Math.min(left, viewportLeft + viewportWidth - width - margin));
+        top = Math.max(viewportTop + margin, Math.min(top, viewportTop + viewportHeight - height - margin));
         const overlap = Math.max(0, Math.min(left + width, rect.right) - Math.max(left, rect.left)) * Math.max(0, Math.min(top + height, rect.bottom) - Math.max(top, rect.top));
         return { left, top, score: overlap * 10 + Math.hypot(left - x, top - y) };
       }).sort((a, b) => a.score - b.score);
@@ -9161,9 +9312,12 @@ ${value.stack}`;
     hide() {
       this.panel.style.display = "none";
       this.highlighter.hide();
+      this.layer.hide();
+      this.target = void 0;
     }
     destroy() {
       clearTimeout(this.copyTimer);
+      this.layer.destroy();
       this.host.remove();
     }
   };
@@ -9380,7 +9534,8 @@ ${value.stack}`;
             revision++;
             hover?.cancel();
           },
-          onLeave: () => hover?.resample()
+          onLeave: () => hover?.resample(),
+          onTargetBlocked: hide
         });
         hover = new HoverDetector({ ownsEvent: (event) => panel.ownsEvent(event), engaged: () => panel.isEngaged(), onHover: inspect, onLeave: hide });
         hover.start();
@@ -9388,6 +9543,8 @@ ${value.stack}`;
         observer.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
         window.addEventListener("scroll", layout, { capture: true, passive: true });
         window.addEventListener("resize", layout, { passive: true });
+        window.visualViewport?.addEventListener("resize", layout, { passive: true });
+        window.visualViewport?.addEventListener("scroll", layout, { passive: true });
         document.addEventListener("keydown", keydown, true);
       } else if (!settings.enabled && panel) {
         hide();
@@ -9403,6 +9560,8 @@ ${value.stack}`;
         layoutFrame = void 0;
         window.removeEventListener("scroll", layout, true);
         window.removeEventListener("resize", layout);
+        window.visualViewport?.removeEventListener("resize", layout);
+        window.visualViewport?.removeEventListener("scroll", layout);
         document.removeEventListener("keydown", keydown, true);
       } else if (panel && selected) render();
     }

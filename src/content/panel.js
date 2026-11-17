@@ -1,7 +1,9 @@
 import { Highlighter } from './highlighter.js';
+import { OverlayLayer } from './overlay-layer.js';
 
 const styles = `
   :host { all: initial; color-scheme: light; }
+  :host::backdrop { display:none !important; background:transparent !important; pointer-events:none !important; }
   *, *::before, *::after { box-sizing: border-box; }
   .outline { display:none; position:fixed; pointer-events:none; border:2px solid #079b8e; border-radius:4px; background:#0eaa9209; box-shadow:0 0 0 2px #ffffffb3; z-index:0; }
   .panel { display:none; position:fixed; pointer-events:auto; width:356px; max-height:calc(100vh - 16px); overflow:auto; color:#18283d; background:#fff; border:1px solid #dce4ed; border-radius:14px; box-shadow:0 12px 48px #1226392b,0 2px 8px #1226390f; font:13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; text-align:left; letter-spacing:normal; z-index:1; }
@@ -38,9 +40,8 @@ const styles = `
 `;
 
 export class FloatingPanel {
-  constructor({ onCopy, onDisable, onEnter, onLeave }) {
+  constructor({ onCopy, onDisable, onEnter, onLeave, onTargetBlocked }) {
     this.host = document.createElement('locator-lens-overlay');
-    this.host.style.cssText = 'all:initial!important;display:block!important;position:fixed!important;inset:0!important;z-index:2147483647!important;pointer-events:none!important;';
     this.root = this.host.attachShadow({ mode: 'closed' });
     const style = document.createElement('style');
     style.textContent = styles;
@@ -68,7 +69,11 @@ export class FloatingPanel {
     this.panel.querySelector('.close').addEventListener('click', onDisable);
     this.panel.addEventListener('pointerenter', onEnter);
     this.panel.addEventListener('pointerleave', onLeave);
-    document.documentElement.append(this.host);
+    this.layer = new OverlayLayer(this.host, {
+      ownsNode: node => this.ownsNode(node),
+      onPosition: () => this.position(this.target, this.point),
+      onTargetBlocked: onTargetBlocked ?? (() => this.hide()),
+    });
   }
 
   ownsEvent(event) { return event.composedPath().includes(this.host); }
@@ -95,15 +100,25 @@ export class FloatingPanel {
     this.fields.error.hidden = true;
     this.copy.disabled = !valid;
     this.panel.style.display = 'block';
+    if (!this.layer.ensure(target)) return;
     this.highlighter.show(target);
     this.position(target, point);
   }
 
   position(target, point) {
     if (!target?.isConnected) return;
-    const margin = 8;
-    const width = Math.max(100, Math.min(356, innerWidth - margin * 2));
+    this.target = target;
+    this.point = point;
+    if (!this.layer.ensure(target)) return;
+    const viewport = window.visualViewport;
+    const viewportLeft = viewport?.offsetLeft ?? 0;
+    const viewportTop = viewport?.offsetTop ?? 0;
+    const viewportWidth = viewport?.width ?? innerWidth;
+    const viewportHeight = viewport?.height ?? innerHeight;
+    const margin = Math.min(8, viewportWidth / 4, viewportHeight / 4);
+    const width = Math.max(1, Math.min(356, viewportWidth - margin * 2));
     this.panel.style.width = `${width}px`;
+    this.panel.style.maxHeight = `${Math.max(1, viewportHeight - margin * 2)}px`;
     const height = this.panel.getBoundingClientRect().height;
     const rect = target.getBoundingClientRect();
     const x = point?.x ?? rect.left;
@@ -112,8 +127,8 @@ export class FloatingPanel {
       [rect.right + 12, y - 20], [x + 18, rect.bottom + 12],
       [rect.left - width - 12, y - 20], [x + 18, rect.top - height - 12], [x + 18, y + 18],
     ].map(([left, top]) => {
-      left = Math.max(margin, Math.min(left, innerWidth - width - margin));
-      top = Math.max(margin, Math.min(top, innerHeight - height - margin));
+      left = Math.max(viewportLeft + margin, Math.min(left, viewportLeft + viewportWidth - width - margin));
+      top = Math.max(viewportTop + margin, Math.min(top, viewportTop + viewportHeight - height - margin));
       const overlap = Math.max(0, Math.min(left + width, rect.right) - Math.max(left, rect.left)) * Math.max(0, Math.min(top + height, rect.bottom) - Math.max(top, rect.top));
       return { left, top, score: overlap * 10 + Math.hypot(left - x, top - y) };
     }).sort((a, b) => a.score - b.score);
@@ -137,6 +152,6 @@ export class FloatingPanel {
       this.highlighter.hide();
     }
   }
-  hide() { this.panel.style.display = 'none'; this.highlighter.hide(); }
-  destroy() { clearTimeout(this.copyTimer); this.host.remove(); }
+  hide() { this.panel.style.display = 'none'; this.highlighter.hide(); this.layer.hide(); this.target = undefined; }
+  destroy() { clearTimeout(this.copyTimer); this.layer.destroy(); this.host.remove(); }
 }

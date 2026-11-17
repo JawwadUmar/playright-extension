@@ -24,6 +24,10 @@ Load `extension/` from Chrome Developer Mode. Enable inspection, start
 | Hover both shadow buttons and nested shadow inputs | Open roots work; correct exact node |
 | Hover each frame's controls | Complete unique frame path from `page` |
 | Inspect a small nested frame | Panel remains in its viewport; copy shortcut works |
+| Inspect LinkedIn Easy Apply or another modal | Panel stays above the dialog/backdrop and Copy remains clickable |
+| Open another native modal while inspecting | The previous inert target is cleared; hovering the new modal selects its controls |
+| Copy inside a site popover/menu | The site's popover stays open |
+| Inspect a transformed/clipped modal, then resize the window | Panel remains inside the visible viewport and can still copy |
 | Switch Python/JavaScript while panel is open | Code updates immediately |
 | Toggle details | Accessible name and validation details appear/disappear |
 | Click Copy | Clipboard contains the complete displayed expression |

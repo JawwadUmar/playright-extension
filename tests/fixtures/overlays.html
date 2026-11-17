@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Overlay regression playground</title>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px; font:15px/1.5 system-ui; color:#203449; }
+  button,input { font:inherit; padding:9px 15px; margin:6px; }
+  .backdrop { position:fixed; inset:0; z-index:2147483647; background:#102132bb; }
+  .card,dialog { width:650px; max-width:calc(100vw - 48px); padding:24px; background:white; border:1px solid #adc0d0; border-radius:10px; }
+  .card { margin:10vh auto; transform:translate(13px,17px); overflow:hidden; contain:paint; }
+  dialog { transform:translate(11px,9px); overflow:hidden; contain:paint; }
+  dialog::backdrop { background:#102132bb; }
+  .scroller { height:160px; overflow:auto; transform:translateZ(0); }
+  .actions { text-align:right; }
+  [popover]::backdrop { background:#000c !important; pointer-events:auto !important; }
+  #site-popover { position:fixed; inset:0; margin:0; width:100vw; height:100vh; border:0; background:#dce6f4; }
+</style></head><body>
+<h1>Overlay regression playground</h1>
+<button id="outside">Ordinary page action</button>
+<dialog id="native-modal" aria-label="Application form">
+  <h2>Application form</h2><div class="scroller"><label>Email address<input id="native-field" aria-label="Contact email"></label><p>Scrollable, transformed, and clipped dialog content.</p></div>
+  <div class="actions"><button id="native-next" onclick="window.modalClicks++">Next step</button></div>
+</dialog>
+<dialog id="second-modal" aria-label="Follow-up form"><h2>Follow-up form</h2><input aria-label="Follow-up email"><button id="second-next">Finish application</button></dialog>
+<div id="site-popover" popover="manual"><h2>Another site overlay</h2><button id="site-action">Site overlay action</button></div>
+<div id="auto-popover" popover="auto"><h2>Account menu</h2><button id="auto-action">Manage account menu</button></div>
+<modal-component></modal-component>
+<script>
+  window.modalClicks = 0;
+  customElements.define('modal-component', class extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({mode:'open'}).innerHTML = '<style>dialog{width:560px;max-width:calc(100vw - 48px);padding:24px;overflow:hidden;transform:translate(17px,13px);contain:paint}dialog::backdrop{background:#102132bb}button{padding:12px}</style><dialog aria-label="Shadow modal"><h2>Shadow modal</h2><button id="shadow-action">Save shadow modal</button></dialog>';
+    }
+  });
+  window.openCssModal = () => {
+    const overlay = document.createElement('div');
+    overlay.className = 'backdrop';
+    overlay.innerHTML = '<section class="card" role="dialog" aria-modal="true" aria-label="Job application"><h2>Job application</h2><div class="scroller"><p>A modal with a maximum-z-index backdrop and clipping.</p><input aria-label="Applicant email"></div><div class="actions"><button id="css-next">Continue application</button></div></section>';
+    document.body.append(overlay);
+  };
+</script></body></html>

@@ -36,10 +36,10 @@ async function settings(patch) {
   }, patch);
 }
 
-async function newPage() {
+async function newPage(pathname = '/') {
   await settings({ enabled: false, language: 'python', details: false });
   const page = await context.newPage();
-  await page.goto('http://127.0.0.1:4173');
+  await page.goto(`http://127.0.0.1:4173${pathname}`);
   await settings({ enabled: true });
   await expect(page.locator('locator-lens-overlay')).toHaveCount(1);
   return page;
@@ -86,6 +86,26 @@ async function clickCopy(page, frameUrl) {
   const q = model.content;
   await page.mouse.click((q[0] + q[2] + q[4] + q[6]) / 4, (q[1] + q[3] + q[5] + q[7]) / 4);
   await result.session.detach();
+}
+
+async function expectCopied(page) {
+  await clickCopy(page);
+  await expect.poll(async () => {
+    const tree = await panelTree(page); await tree.session.detach(); return tree.text;
+  }).toContain('Copied');
+}
+
+async function expectPanelInViewport(page) {
+  const tree = await panelTree(page);
+  const { model } = await tree.session.send('DOM.getBoxModel', { backendNodeId: tree.panel.backendNodeId });
+  await tree.session.detach();
+  const viewport = page.viewportSize();
+  const xs = model.border.filter((_, index) => index % 2 === 0);
+  const ys = model.border.filter((_, index) => index % 2 === 1);
+  expect(Math.min(...xs)).toBeGreaterThanOrEqual(0);
+  expect(Math.min(...ys)).toBeGreaterThanOrEqual(0);
+  expect(Math.max(...xs)).toBeLessThanOrEqual(viewport.width);
+  expect(Math.max(...ys)).toBeLessThanOrEqual(viewport.height);
 }
 
 test('loads the MV3 worker and popup, persists controls, and updates the badge', async () => {
@@ -236,5 +256,105 @@ test('identical iframe URLs and titles resolve to the exact hovered frame', asyn
   const tree = await panelTree(page, url);
   expect(tree.text).toContain('iframe path is position dependent');
   await tree.session.detach();
+  await page.close();
+});
+
+test('panel stays clickable above maximum-z-index job cards and clipped modal containers', async () => {
+  const page = await newPage('/overlays.html');
+  await page.locator('#outside').hover();
+  await expect.poll(() => panelCode(page)).toContain('Ordinary page action');
+  await page.evaluate(() => window.openCssModal());
+  await page.locator('#css-next').hover();
+  await expect.poll(() => panelCode(page)).toContain('Continue application');
+  await expectPanelInViewport(page);
+  await expectCopied(page);
+  await expect(page.getByRole('dialog', { name: 'Job application' })).toBeVisible();
+  await page.screenshot({ path: 'test-results/modal-overlay.png' });
+  await page.close();
+});
+
+test('native modal backdrops do not dim or block Copy and showing the panel preserves page focus', async () => {
+  const page = await newPage('/overlays.html');
+  await page.locator('#outside').hover();
+  await expect.poll(() => panelCode(page)).toContain('Ordinary page action');
+  await page.locator('#native-modal').evaluate(dialog => dialog.showModal());
+  await page.locator('#native-field').fill('applicant@example.test');
+  await page.locator('#native-next').hover();
+  await expect.poll(() => panelCode(page)).toContain('Next step');
+  await expect(page.locator('#native-field')).toBeFocused();
+  await expectPanelInViewport(page);
+  await expectCopied(page);
+  expect(await page.locator('#native-modal').evaluate(dialog => dialog.matches(':modal'))).toBe(true);
+  await page.locator('#native-next').click();
+  expect(await page.evaluate(() => window.modalClicks)).toBe(1);
+  await page.screenshot({ path: 'test-results/native-modal-overlay.png' });
+  await page.locator('#native-modal').evaluate(dialog => dialog.close());
+  await page.locator('#outside').hover();
+  await expect.poll(() => panelCode(page)).toContain('Ordinary page action');
+  await expectCopied(page);
+  await page.close();
+});
+
+test('later top-layer site popovers do not cover the existing selector panel', async () => {
+  const page = await newPage('/overlays.html');
+  await page.locator('#outside').hover();
+  await expect.poll(() => panelCode(page)).toContain('Ordinary page action');
+  await page.locator('#site-popover').evaluate(popover => popover.showPopover());
+  // Keep the existing selector: no new hover is required to lift the panel.
+  await expectCopied(page);
+  expect(await page.locator('#site-popover').evaluate(popover => popover.matches(':popover-open'))).toBe(true);
+  await page.close();
+});
+
+test('Copy inside an automatic site popover leaves that popover open', async () => {
+  const page = await newPage('/overlays.html');
+  await page.locator('#auto-popover').evaluate(popover => popover.showPopover());
+  await page.locator('#auto-action').hover();
+  await expect.poll(() => panelCode(page)).toContain('Manage account menu');
+  await expectCopied(page);
+  expect(await page.locator('#auto-popover').evaluate(popover => popover.matches(':popover-open'))).toBe(true);
+  await page.close();
+});
+
+test('native dialogs inside open shadow roots allow panel interaction', async () => {
+  const page = await newPage('/overlays.html');
+  await page.locator('modal-component').locator('dialog').evaluate(dialog => dialog.showModal());
+  await page.locator('#shadow-action').hover();
+  await expect.poll(() => panelCode(page)).toContain('Save shadow modal');
+  await expectPanelInViewport(page);
+  await expectCopied(page);
+  expect(await page.locator('modal-component').locator('dialog').evaluate(dialog => dialog.matches(':modal'))).toBe(true);
+  await page.close();
+});
+
+test('nested modal transitions use the active dialog even when DOM order differs', async () => {
+  const page = await newPage('/overlays.html');
+  // Open the later DOM sibling first; the last DOM dialog is not always topmost.
+  await page.locator('#second-modal').evaluate(dialog => dialog.showModal());
+  await page.locator('#second-next').hover();
+  await expect.poll(() => panelCode(page)).toContain('Finish application');
+  await page.locator('#native-modal').evaluate(dialog => dialog.showModal());
+  await page.locator('#native-next').hover();
+  await expect.poll(() => panelCode(page)).toContain('Next step');
+  await expectCopied(page);
+  await page.locator('#native-modal').evaluate(dialog => dialog.close());
+  await page.locator('#second-next').hover();
+  await expect.poll(() => panelCode(page)).toContain('Finish application');
+  await expectCopied(page);
+  await page.close();
+});
+
+test('transformed page roots and viewport resizing do not clip the panel', async () => {
+  const page = await newPage('/overlays.html');
+  await page.evaluate(() => {
+    Object.assign(document.documentElement.style, { transform: 'translate(37px, 23px)', overflow: 'hidden', contain: 'paint', height: '80vh', width: '85vw' });
+  });
+  await page.locator('#outside').hover();
+  await expect.poll(() => panelCode(page)).toContain('Ordinary page action');
+  await expectPanelInViewport(page);
+  await expectCopied(page);
+  await page.setViewportSize({ width: 320, height: 320 });
+  await expect(() => expectPanelInViewport(page)).toPass({ timeout: 6000 });
+  await expectCopied(page);
   await page.close();
 });
